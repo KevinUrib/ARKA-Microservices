@@ -33,7 +33,20 @@ public class ClientService {
                 .map(ClientMapper::toDto);
     }
 
+    public Mono<ClientDto> findByEmail(String email){
+        return clientRepository.findByEmail(email)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(NOT_FOUND, "Client not found by email")))
+                .map(ClientMapper::toDto);
+    }
+
     public Mono<ClientDto> create(ClientDto dto) {
+        if(dto.getId() != null){
+            return clientRepository.findById(dto.getId())
+            .flatMap(existing -> Mono.error(new ResponseStatusException(CONFLICT, "ID already exists")))
+            .switchIfEmpty(clientRepository.save(ClientMapper.toEntity(dto)))
+            .cast(Client.class)
+            .map(ClientMapper::toDto);
+        }
         return clientRepository.findByEmail(dto.getEmail())
                 .flatMap(existing -> Mono.error(new ResponseStatusException(CONFLICT, "Email already exists")))
                 .switchIfEmpty(clientRepository.save(ClientMapper.toEntity(dto)))
