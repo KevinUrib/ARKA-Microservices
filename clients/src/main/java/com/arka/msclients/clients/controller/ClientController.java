@@ -40,22 +40,34 @@ public class ClientController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/email/{email}")
+    public Mono<ResponseEntity<ClientDto>> getByEmail(@PathVariable String email) {
+        return clientService.findByEmail(email)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     public Mono<ResponseEntity<ClientDto>> createClient(@Valid @RequestBody ClientDto clientDto){
         return clientService.create(clientDto)
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved))
+                .defaultIfEmpty(ResponseEntity.status(HttpStatus.BAD_REQUEST).build());
+                
     }
 
     @PutMapping("/{id}")
     public Mono<ResponseEntity<ClientDto>> updateClient(@PathVariable Long id, @Valid @RequestBody ClientDto clientDto){
         return clientService.update(id, clientDto)
-                .map(ResponseEntity::ok);
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteClient(@PathVariable Long id){
         return clientService.delete(id)
-                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+            .flatMap(deleted -> deleted
+                    ? Mono.just(ResponseEntity.noContent().<Void>build())
+                    : Mono.just(ResponseEntity.notFound().build()));
     }
 
 }

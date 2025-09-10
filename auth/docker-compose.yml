@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_DB: authdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  auth:
+    build: .
+    container_name: auth-microservice
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATA_R2DBC_URL: r2dbc:postgresql://postgres:5432/authdb
+      SPRING_DATA_R2DBC_USERNAME: postgres
+      SPRING_DATA_R2DBC_PASSWORD: admin123
+
+volumes:
+  postgres_data:

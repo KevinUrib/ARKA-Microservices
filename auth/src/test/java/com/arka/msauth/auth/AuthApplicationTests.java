@@ -1,10 +1,10 @@
-package com.arka.msclients.clients;
+package com.arka.msauth.auth;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ClientsApplicationTests {
+class AuthApplicationTests {
 
 	@Test
 	void contextLoads() {

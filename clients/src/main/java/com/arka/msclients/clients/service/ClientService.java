@@ -33,7 +33,25 @@ public class ClientService {
                 .map(ClientMapper::toDto);
     }
 
+    public Mono<ClientDto> findByEmail(String email) {
+        return clientRepository.findByEmail(email)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(NOT_FOUND, "Client not found by email")))
+                .map(ClientMapper::toDto);
+    }
+
     public Mono<ClientDto> create(ClientDto dto) {
+        if (dto.getId() != null) {
+            return clientRepository.findById(dto.getId())
+                    .flatMap(existing -> Mono
+                            .<ClientDto>error(new ResponseStatusException(CONFLICT, "ID already exists")))
+                    .switchIfEmpty(
+                            clientRepository.findByEmail(dto.getEmail())
+                                    .flatMap(existing -> Mono.<ClientDto>error(
+                                            new ResponseStatusException(CONFLICT, "Email already exists")))
+                                    .switchIfEmpty(clientRepository.save(ClientMapper.toEntity(dto))
+                                            .cast(Client.class)
+                                            .map(ClientMapper::toDto)));
+        }
         return clientRepository.findByEmail(dto.getEmail())
                 .flatMap(existing -> Mono.error(new ResponseStatusException(CONFLICT, "Email already exists")))
                 .switchIfEmpty(clientRepository.save(ClientMapper.toEntity(dto)))
@@ -53,10 +71,10 @@ public class ClientService {
                 .map(ClientMapper::toDto);
     }
 
-    public Mono<Void> delete(Long id) {
+    public Mono<Boolean> delete(Long id) {
         return clientRepository.findById(id)
-                .switchIfEmpty(Mono.error(new ResponseStatusException(NOT_FOUND, "Client not found")))
-                .flatMap(clientRepository::delete);
+                .flatMap(client -> clientRepository.delete(client).thenReturn(true))
+                .defaultIfEmpty(false);
     }
 
 }
