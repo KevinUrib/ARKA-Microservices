@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_DB: clientsdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  clients:
+    build: .
+    container_name: clients-microservice
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATA_R2DBC_URL: r2dbc:postgresql://postgres:5432/clientsdb
+      SPRING_DATA_R2DBC_USERNAME: postgres
+      SPRING_DATA_R2DBC_PASSWORD: admin123
+
+volumes:
+  postgres_data:

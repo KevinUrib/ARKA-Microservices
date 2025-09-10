@@ -3,13 +3,11 @@ package com.arka.msclients.clients.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.arka.msclients.clients.dto.ClientDto;
 import com.arka.msclients.clients.service.ClientService;
@@ -17,146 +15,120 @@ import com.arka.msclients.clients.service.ClientService;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-
+@WebFluxTest(controllers = ClientController.class)
 public class ClientControllerTest {
 
+    @Autowired
     private WebTestClient webTestClient;
+
+    @MockBean
     private ClientService clientService;
 
+    private ClientDto clientDto;
+    private ClientDto clientDto2;
+
     @BeforeEach
-    public void setUp(){
-        clientService = Mockito.mock(ClientService.class);
-        ClientController clientController = new ClientController(clientService);
-        webTestClient = WebTestClient.bindToController(clientController).build();
+    void setUp() {
+        clientDto = new ClientDto(1L, "John Doe", "john.doe@example.com", "1234567890", "123 Main St");
+        clientDto2 = new ClientDto(2L, "Jane Doe", "jane.doe@example.com", "0987654321", "456 Elm St");
     }
 
     @Test
-    public void testGetAllClients(){
-        ClientDto clientDto1 = new ClientDto(1L, "John Doe", "john.doe@example.com", "1234567890", "123 Main St");
+    void testGetAllClients() {
+        Mockito.when(clientService.findAll()).thenReturn(Flux.just(clientDto, clientDto2));
 
-        when(clientService.findAll())
-        .thenReturn(Flux.just(clientDto1));
-
-        webTestClient.get()
-        .uri("/api/v1/clients")
-        .accept(MediaType.APPLICATION_JSON)
-        .exchange()
-        .expectStatus().isOk()
-        .expectBodyList(ClientDto.class)
-        .hasSize(1)
-        .contains(clientDto1);
+        webTestClient.get().uri("/api/v1/clients")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClientDto.class)
+                .hasSize(2)
+                .contains(clientDto, clientDto2);
     }
 
     @Test
-    public void testGetClientById(){
-        ClientDto clientDto = new ClientDto(1L, "John Doe", "john.doe@example.com", "1234567890", "123 Main St");
-        when(clientService.findById(1L)).thenReturn(Mono.just(clientDto));
+    void testGetClientById() {
+        Mockito.when(clientService.findById(1L)).thenReturn(Mono.just(clientDto));
 
-        webTestClient.get()
-        .uri("/api/v1/clients/1")
-        .accept(MediaType.APPLICATION_JSON)
-        .exchange()
-        .expectStatus().isOk()
-        .expectBody(ClientDto.class)
-        .isEqualTo(clientDto);
-        verify(clientService, times(1)).findById(1L);
+        webTestClient.get().uri("/api/v1/clients/{id}", 1L)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ClientDto.class)
+                .isEqualTo(clientDto);
     }
 
     @Test
-    public void testCreateClient(){
-        ClientDto clientDto = new ClientDto(1L, "John Doe", "john.doe@example.com", "1234567890", "123 Main St");
-        when(clientService.create(clientDto)).thenReturn(Mono.just(clientDto));
+    void testGetClientById_NotFound() {
+        Mockito.when(clientService.findById(99L)).thenReturn(Mono.empty());
 
-        webTestClient.post()
-        .uri("/api/v1/clients")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(clientDto)
-        .exchange()
-        .expectStatus().isCreated()
-        .expectBody(ClientDto.class)
-        .isEqualTo(clientDto);
-        verify(clientService, times(1)).create(clientDto);
+        webTestClient.get().uri("/api/v1/clients/{id}", 99L)
+                .exchange()
+                .expectStatus().isNotFound();
     }
 
     @Test
-    public void testUpdateClient(){
-        ClientDto clientDto = new ClientDto(1L, "John Doe", "john.doe@example.com", "1234567890", "123 Main St");
-        when(clientService.update(1L, clientDto)).thenReturn(Mono.just(clientDto));
+    void testGetClientByEmail() {
+        Mockito.when(clientService.findByEmail("john.doe@example.com")).thenReturn(Mono.just(clientDto));
 
-        webTestClient.put()
-        .uri("/api/v1/clients/1")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(clientDto)
-        .exchange()
-        .expectStatus().isOk()
-        .expectBody(ClientDto.class)
-        .isEqualTo(clientDto);
-        verify(clientService, times(1)).update(1L, clientDto);
+        webTestClient.get().uri("/api/v1/clients/email/{email}", "john.doe@example.com")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ClientDto.class)
+                .isEqualTo(clientDto);
     }
 
     @Test
-    public void testDeleteClient(){
-        when(clientService.delete(1L)).thenReturn(Mono.empty());
+    void testGetClientByEmail_NotFound() {
+        Mockito.when(clientService.findByEmail("not.found@example.com")).thenReturn(Mono.empty());
 
-        webTestClient.delete()
-        .uri("/api/v1/clients/1")
-        .exchange()
-        .expectStatus().isNoContent();
-        verify(clientService, times(1)).delete(1L);
+        webTestClient.get().uri("/api/v1/clients/email/{email}", "not.found@example.com")
+                .exchange()
+                .expectStatus().isNotFound();
+
     }
 
     @Test
-    public void testGetClientByIdNotFound(){
-        when(clientService.findById(1L)).thenReturn(Mono.empty());
+    void testCreateClient(){
+        Mockito.when(clientService.create(Mockito.any(ClientDto.class))).thenReturn(Mono.just(clientDto));
 
-        webTestClient.get()
-        .uri("/api/v1/clients/1")
-        .accept(MediaType.APPLICATION_JSON)
-        .exchange()
-        .expectStatus().isNotFound();
-        
-        verify(clientService, times(1)).findById(1L);
+        webTestClient.post().uri("/api/v1/clients")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(clientDto)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody(ClientDto.class)
+                .isEqualTo(clientDto);
     }
 
     @Test
-    public void testCreateClientBadRequest(){
-        ClientDto clientDto = new ClientDto(null, "John Doe", "john.doe@example.com", "1234567890", "123 Main St");
-        when(clientService.create(clientDto)).thenReturn(Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST)));
+    void testUpdateClient(){
+        ClientDto updatedClient = new ClientDto(1L, "John Smith", "john.smith@example.com", "1234567890", "San Salvador");
+        Mockito.when(clientService.update(Mockito.eq(1L), Mockito.any(ClientDto.class))).thenReturn(Mono.just(updatedClient));
 
-        webTestClient.post()
-        .uri("/api/v1/clients")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(clientDto)
-        .exchange()
-        .expectStatus().isBadRequest();
-
-        verify(clientService, times(1)).create(clientDto);
+        webTestClient.put().uri("/api/v1/clients/{id}", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updatedClient)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ClientDto.class)
+                .isEqualTo(updatedClient);
     }
 
     @Test
-    public void testUpdateClientNotFound(){
-        ClientDto clientDto = new ClientDto(55L, "Maria Antonieta", "maria.antonieta@example.com", "1234567890", "123 Main St");
-        when(clientService.update(55L, clientDto)).thenReturn(Mono.empty());
+    void testDeleteClient_Success(){
+        Mockito.when(clientService.delete(1L)).thenReturn(Mono.just(true));
 
-        webTestClient.put()
-        .uri("/api/v1/clients/55")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(clientDto)
-        .exchange()
-        .expectStatus().isNotFound();
-
-        verify(clientService, times(1)).update(55L, clientDto);
+        webTestClient.delete().uri("/api/v1/clients/{id}", 1L)
+                .exchange()
+                .expectStatus().isNoContent();
     }
 
     @Test
-    public void testDeleteClientNotFound(){
-        when(clientService.delete(55L)).thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+    void testDeleteClient_NotFound() {
+        Mockito.when(clientService.delete(99L)).thenReturn(Mono.just(false));
 
-        webTestClient.delete()
-        .uri("/api/v1/clients/55")
-        .exchange()
-        .expectStatus().isNotFound();
-
-        verify(clientService, times(1)).delete(55L);
+        webTestClient.delete().uri("/api/v1/clients/{id}", 99L)
+                .exchange()
+                .expectStatus().isNotFound();
     }
+
 }

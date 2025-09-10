@@ -65,8 +65,9 @@ public class ClientController {
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteClient(@PathVariable Long id){
         return clientService.delete(id)
-                .then(Mono.just(ResponseEntity.noContent().<Void>build()))
-                .defaultIfEmpty(ResponseEntity.notFound().build());
+            .flatMap(deleted -> deleted
+                    ? Mono.just(ResponseEntity.noContent().<Void>build())
+                    : Mono.just(ResponseEntity.notFound().build()));
     }
 
 }
